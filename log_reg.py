@@ -28,16 +28,15 @@ class LogisticRegression():
         self.params = [self.W, self.b]
         self.input_var = input_var
 
-    def binary_cross_entropy(self, target_prob):
+    def binary_cross_entropy(self, target_prob, lbd=1e-1):
         return T.nnet.binary_crossentropy(
             self.pred_prob,
             T.clip(target_prob, 0.001, 0.999)
-        ).mean()
+        ).mean() + lbd * T.sum(self.W ** 2)
 
 
 def main(args):
-    batch_size = 1000000
-    learning_rate = 5e-3
+    learning_rate = theano.shared(np.array(5e-2, dtype=theano.config.floatX))
     n_epochs = 1000
 
     with np.load('./dataset.npz') as fd:
@@ -67,25 +66,19 @@ def main(args):
         updates=updates
     )
 
-    n_batches = trainX.shape[0] // batch_size
-
     epoch = 0
     while epoch < n_epochs:
         epoch = epoch + 1
-        epoch_loss = 0.
         start_time = time.process_time()
-        for index in range(n_batches):
-            thisX = trainX[index * batch_size: (index + 1) * batch_size]
-            thisy = trainy[
-                index * batch_size: (index + 1) * batch_size,
-                np.newaxis
-            ]
+        if epoch >= 40 and epoch % 20 == 0:
+            new_lr = learning_rate.get_value() * 0.9
+            print('Learning rate annealing to {:.5f}'.format(new_lr))
+            learning_rate.set_value(new_lr)
 
-            epoch_loss += train_model(thisX, thisy)
-        avg_loss = epoch_loss / index
+        epoch_loss = float(train_model(trainX, trainy[:, np.newaxis]))
         time_delta = time.process_time() - start_time
         print('Done epoch {}/{} in {:.2f}, avg loss {:.4f}'.format(
-            epoch, n_epochs, time_delta, avg_loss
+            epoch, n_epochs, time_delta, epoch_loss
         ))
 
 if __name__ == '__main__':
