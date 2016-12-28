@@ -1,3 +1,4 @@
+from lasagne.updates import nesterov_momentum
 from theano import tensor as T
 import numpy as np
 import theano
@@ -58,14 +59,8 @@ def get_train_test_functions(learning_rate, n_features):
     )
 
     loss = model.binary_cross_entropy(y)
-
-    g_W = T.grad(cost=loss, wrt=model.W)
-    g_b = T.grad(cost=loss, wrt=model.b)
-
-    updates = [
-        (model.W, model.W - learning_rate * g_W),
-        (model.b, model.b - learning_rate * g_b)
-    ]
+    grads = T.grad(loss, model.params)
+    updates = nesterov_momentum(grads, model.params, learning_rate)
 
     train_model = theano.function(
         inputs=[X, y],
@@ -105,11 +100,11 @@ def train_val_split(trainX, trainy, split_degree=0.9, shuffle=True):
 
 
 def main(args):
-    learning_rate = theano.shared(np.array(5e-2, dtype=theano.config.floatX))
-    decay_frequency = 20
-    anneal_factor = 0.9
-    min_decay = 40
-    n_epochs = 200
+    learning_rate = theano.shared(np.array(1e-2, dtype=theano.config.floatX))
+    decay_frequency = 25
+    anneal_factor = 0.5
+    min_decay = 25
+    n_epochs = 1000
 
     def decay_function(epoch):
         if epoch >= min_decay and epoch % decay_frequency == 0:
